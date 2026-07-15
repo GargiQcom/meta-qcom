@@ -1,0 +1,31 @@
+From 8c496346872f8c767dcd5802a6b838dd42aa6124 Mon Sep 17 00:00:00 2001
+From: Gargi Misra <gmisra@qti.qualcomm.com>
+Date: Wed, 15 Jul 2026 22:43:45 +0530
+Subject: [PATCH] systemd: allow log-parse domains to read usr_t symlinks
+
+Systemd log environment parsing on iq-9075-evk traverses /usr/local, which is labeled usr_t as a symlink on the QLI image. Allow systemd_log_parse_env_type to read and getattr usr_t lnk_file objects so systemd-modules-load can parse its environment without AVC denials.
+
+Upstream-Status: Submitted [QTI downstream integration candidate]
+
+Signed-off-by: Gargi Misra <gmisra@qti.qualcomm.com>
+---
+ policy/modules/system/systemd.te | 4 ++++
+ 1 file changed, 4 insertions(+)
+
+diff --git a/policy/modules/system/systemd.te b/policy/modules/system/systemd.te
+index a3ea5c819..65c07a761 100644
+--- a/policy/modules/system/systemd.te
++++ b/policy/modules/system/systemd.te
+@@ -1053,6 +1053,10 @@ term_use_console(systemd_log_parse_env_type)
+ 
+ init_read_state(systemd_log_parse_env_type)
+ 
++# Systemd environment parsing may traverse /usr/local, which is commonly a
++# symlink labeled usr_t on QLI images.
++allow systemd_log_parse_env_type usr_t:lnk_file { getattr read };
++
+ logging_send_syslog_msg(systemd_log_parse_env_type)
+ 
+ #########################################
+-- 
+2.43.0
