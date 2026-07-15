@@ -1,0 +1,66 @@
+From 59f02ef44eac6900517139ec2e663d3f0512c6de Mon Sep 17 00:00:00 2001
+From: kumarn <kumarn@qualcomm.com>
+Date: Wed, 15 Jul 2026 18:54:45 +0530
+Subject: [PATCH] systemd: allow systemd modules-load/tmpfiles/sysctl/sysusers
+Upstream-Status: Submitted [https://github.com/GargiQcom/meta-qcom/pull/1]
+ to read /usr symlinks
+
+On QCS6490 (RB3 Gen2) with the SELinux-enabled Qualcomm Linux distro,
+several early-boot systemd helper services emit AVC denials when they
+traverse the /usr/local symlink, which is labelled usr_t:
+
+  systemd_modules_load_t : getattr, read  usr_t:lnk_file
+  systemd_tmpfiles_t     : getattr        usr_t:lnk_file
+  systemd_sysctl_t       : getattr        usr_t:lnk_file
+  systemd_sysusers_t     : getattr        usr_t:lnk_file
+
+All of these domains legitimately walk paths under /usr and only need
+to read the symlink, not its target. Grant read access to usr_t
+symlinks via the existing files_read_usr_symlinks() interface, mirroring
+the grant already present for systemd_generator_t. This is the minimal
+fix for the denials and does not widen access to the symlink targets.
+
+Signed-off-by: kumarn <kumarn@qualcomm.com>
+---
+ policy/modules/system/systemd.te | 4 ++++
+ 1 file changed, 4 insertions(+)
+
+diff --git a/policy/modules/system/systemd.te b/policy/modules/system/systemd.te
+index 5b389b337..ea830345e 100644
+--- a/policy/modules/system/systemd.te
++++ b/policy/modules/system/systemd.te
+@@ -1431,6 +1431,7 @@ dev_read_sysfs(systemd_modules_load_t)
+ 
+ files_mmap_read_kernel_modules(systemd_modules_load_t)
+ files_read_etc_files(systemd_modules_load_t)
++files_read_usr_symlinks(systemd_modules_load_t)
+ 
+ fs_getattr_all_fs(systemd_modules_load_t)
+ fs_search_all(systemd_modules_load_t)
+@@ -2098,6 +2099,7 @@ kernel_rw_all_sysctls(systemd_sysctl_t)
+ kernel_dontaudit_getattr_proc(systemd_sysctl_t)
+ 
+ files_read_etc_files(systemd_sysctl_t)
++files_read_usr_symlinks(systemd_sysctl_t)
+ 
+ fs_getattr_all_fs(systemd_sysctl_t)
+ fs_search_cgroup_dirs(systemd_sysctl_t)
+@@ -2146,6 +2148,7 @@ allow systemd_sysusers_t self:unix_dgram_socket sendto;
+ domain_obj_id_change_exemption(systemd_sysusers_t)
+ 
+ files_manage_etc_files(systemd_sysusers_t)
++files_read_usr_symlinks(systemd_sysusers_t)
+ 
+ fs_getattr_all_fs(systemd_sysusers_t)
+ fs_getattr_nsfs_files(systemd_sysusers_t)
+@@ -2247,6 +2250,7 @@ files_manage_all_locks(systemd_tmpfiles_t)
+ files_purge_tmp(systemd_tmpfiles_t)
+ files_read_etc_files(systemd_tmpfiles_t)
+ files_read_etc_runtime_files(systemd_tmpfiles_t)
++files_read_usr_symlinks(systemd_tmpfiles_t)
+ files_relabel_config_dirs(systemd_tmpfiles_t)
+ files_relabel_config_files(systemd_tmpfiles_t)
+ files_relabel_config_symlinks(systemd_tmpfiles_t)
+-- 
+2.34.1
+
