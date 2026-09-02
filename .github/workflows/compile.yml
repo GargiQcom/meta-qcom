@@ -41,6 +41,8 @@ on:
 
 env:
   KAS_CLONE_DEPTH: 1
+  KAS_CONTAINER: ${{ github.workspace }}/kas-container
+  KAS_CONTAINER_IMAGE: ghcr.io/siemens/kas/kas:5.5
 
 jobs:
   reusable_compile_job:
@@ -60,8 +62,6 @@ jobs:
       - name: Setting up kas-container
         shell: bash
         run: |
-          KAS_CONTAINER=$GITHUB_WORKSPACE/kas-container
-          echo "KAS_CONTAINER=$KAS_CONTAINER" >> $GITHUB_ENV
           chmod +x $KAS_CONTAINER
 
       - name: Setup build variables
@@ -119,6 +119,9 @@ jobs:
         if:  inputs.target
         shell: bash
         run: |
+          if [ -c /dev/kvm ]; then
+            KAS_CONTAINER="$KAS_CONTAINER --kvm"
+          fi
           $KAS_CONTAINER build ${KAS_YAMLS}
 
       - name: Kas build images (buildstats)
@@ -222,12 +225,13 @@ jobs:
           KERNEL_DIRNAME="${INPUTS_KERNEL_DIRNAME}"
           BUILDNAME="${INPUTS_MACHINE}_${INPUTS_DISTRO_NAME}${KERNEL_DIRNAME}"
           FILENAME="build-url_${BUILDNAME}"
-          echo "${{ steps.upload_s3_artifacts.outputs.url }}" > "${FILENAME}"
+          echo "${UPLOAD_URL}" > "${FILENAME}"
           echo "filename=${FILENAME}" >> $GITHUB_OUTPUT
         env:
           INPUTS_KERNEL_DIRNAME: ${{ inputs.kernel_dirname }}
           INPUTS_MACHINE: ${{ inputs.machine }}
           INPUTS_DISTRO_NAME: ${{ inputs.distro_name }}
+          UPLOAD_URL: ${{ steps.upload_s3_artifacts.outputs.url }}
       - name: Upload build URL
         uses: actions/upload-artifact@v6
         with:
